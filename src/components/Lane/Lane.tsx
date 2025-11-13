@@ -65,6 +65,8 @@ function DraggableLaneRaw({
   const bindHandle = useDragHandle(measureRef, dragHandleRef);
 
   const shouldMarkItemsComplete = !!lane.data.shouldMarkItemsComplete;
+  const shouldMarkItemsInProgress = !!lane.data.shouldMarkItemsInProgress;
+  const shouldMarkItemsCancelled = !!lane.data.shouldMarkItemsCancelled;
   const isCompactPrepend = insertionMethod === 'prepend-compact';
   const shouldPrepend = isCompactPrepend || insertionMethod === 'prepend';
 
@@ -81,17 +83,34 @@ function DraggableLaneRaw({
 
   const addItems = useCallback(
     (items: Item[]) => {
+      // Determine the target status based on lane settings
+      let targetCheckChar: string;
+      let targetChecked: boolean;
+
+      if (shouldMarkItemsComplete) {
+        targetCheckChar = getTaskStatusDone();
+        targetChecked = true;
+      } else if (shouldMarkItemsInProgress) {
+        targetCheckChar = '/';
+        targetChecked = false;
+      } else if (shouldMarkItemsCancelled) {
+        targetCheckChar = '-';
+        targetChecked = false;
+      } else {
+        targetCheckChar = ' ';
+        targetChecked = false;
+      }
+
       boardModifiers[shouldPrepend ? 'prependItems' : 'appendItems'](
         [...path, lane.children.length - 1],
         items.map((item) =>
           update(item, {
             data: {
               checked: {
-                // Mark the item complete if we're moving into a completed lane
-                $set: shouldMarkItemsComplete,
+                $set: targetChecked,
               },
               checkChar: {
-                $set: shouldMarkItemsComplete ? getTaskStatusDone() : ' ',
+                $set: targetCheckChar,
               },
             },
           })
@@ -114,7 +133,7 @@ function DraggableLaneRaw({
         }
       });
     },
-    [boardModifiers, path, lane, shouldPrepend]
+    [boardModifiers, path, lane, shouldPrepend, shouldMarkItemsComplete, shouldMarkItemsInProgress, shouldMarkItemsCancelled]
   );
 
   const DroppableComponent = isStatic ? StaticDroppable : Droppable;

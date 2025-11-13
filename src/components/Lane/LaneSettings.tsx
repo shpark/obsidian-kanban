@@ -34,6 +34,34 @@ export function LaneSettings({ lane, lanePath, editState }: LaneSettingsProps) {
           className={`checkbox-container ${lane.data.shouldMarkItemsComplete ? 'is-enabled' : ''}`}
         />
       </div>
+      <div className={c('checkbox-wrapper')}>
+        <div className={c('checkbox-label')}>{t('Mark cards in this list as in-progress')}</div>
+        <div
+          onClick={() =>
+            boardModifiers.updateLane(
+              lanePath,
+              update(lane, {
+                data: { $toggle: ['shouldMarkItemsInProgress'] },
+              })
+            )
+          }
+          className={`checkbox-container ${lane.data.shouldMarkItemsInProgress ? 'is-enabled' : ''}`}
+        />
+      </div>
+      <div className={c('checkbox-wrapper')}>
+        <div className={c('checkbox-label')}>{t('Mark cards in this list as cancelled')}</div>
+        <div
+          onClick={() =>
+            boardModifiers.updateLane(
+              lanePath,
+              update(lane, {
+                data: { $toggle: ['shouldMarkItemsCancelled'] },
+              })
+            )
+          }
+          className={`checkbox-container ${lane.data.shouldMarkItemsCancelled ? 'is-enabled' : ''}`}
+        />
+      </div>
     </div>
   );
 }

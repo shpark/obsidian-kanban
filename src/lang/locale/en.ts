@@ -240,6 +240,8 @@ const en = {
   // components/Lane/LaneForm.tsx
   'Enter list title...': 'Enter list title...',
   'Mark cards in this list as complete': 'Mark cards in this list as complete',
+  'Mark cards in this list as in-progress': 'Mark cards in this list as in-progress',
+  'Mark cards in this list as cancelled': 'Mark cards in this list as cancelled',
   'Add list': 'Add list',
   'Add a list': 'Add a list',
 

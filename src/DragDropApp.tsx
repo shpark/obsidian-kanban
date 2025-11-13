@@ -54,9 +54,30 @@ export function DragDropApp({ win, plugin }: { win: Window; plugin: KanbanPlugin
         try {
           const items: Item[] = data.content.map((title: string) => {
             let item = stateManager.getNewItem(title, ' ');
-            const isComplete = !!destinationParent?.data?.shouldMarkItemsComplete;
+            const shouldMarkComplete = !!destinationParent?.data?.shouldMarkItemsComplete;
+            const shouldMarkInProgress = !!destinationParent?.data?.shouldMarkItemsInProgress;
+            const shouldMarkCancelled = !!destinationParent?.data?.shouldMarkItemsCancelled;
 
-            if (isComplete) {
+            // Determine target status
+            let targetCheckChar: string;
+            let targetChecked: boolean;
+
+            if (shouldMarkComplete) {
+              targetCheckChar = getTaskStatusDone();
+              targetChecked = true;
+            } else if (shouldMarkInProgress) {
+              targetCheckChar = '-';
+              targetChecked = false;
+            } else if (shouldMarkCancelled) {
+              targetCheckChar = '/';
+              targetChecked = false;
+            } else {
+              targetCheckChar = ' ';
+              targetChecked = false;
+            }
+
+            // For complete status, use toggleTask if available
+            if (shouldMarkComplete) {
               item = update(item, { data: { checkChar: { $set: getTaskStatusPreDone() } } });
               const updates = toggleTask(item, stateManager.file);
               if (updates) {
@@ -69,14 +90,8 @@ export function DragDropApp({ win, plugin }: { win: Window; plugin: KanbanPlugin
 
             return update(item, {
               data: {
-                checked: {
-                  $set: !!destinationParent?.data?.shouldMarkItemsComplete,
-                },
-                checkChar: {
-                  $set: destinationParent?.data?.shouldMarkItemsComplete
-                    ? getTaskStatusDone()
-                    : ' ',
-                },
+                checked: { $set: targetChecked },
+                checkChar: { $set: targetCheckChar },
               },
             });
           });

@@ -46,48 +46,76 @@ export function maybeCompleteForMove(
   const destinationParent = getEntityFromPath(destinationBoard, destinationPath.slice(0, -1));
 
   const oldShouldComplete = sourceParent?.data?.shouldMarkItemsComplete;
-  const newShouldComplete = destinationParent?.data?.shouldMarkItemsComplete;
+  const oldShouldMarkInProgress = sourceParent?.data?.shouldMarkItemsInProgress;
+  const oldShouldMarkCancelled = sourceParent?.data?.shouldMarkItemsCancelled;
 
-  // If neither the old or new lane set it complete, leave it alone
-  if (!oldShouldComplete && !newShouldComplete) return { next: item };
+  const newShouldComplete = destinationParent?.data?.shouldMarkItemsComplete;
+  const newShouldMarkInProgress = destinationParent?.data?.shouldMarkItemsInProgress;
+  const newShouldMarkCancelled = destinationParent?.data?.shouldMarkItemsCancelled;
+
+  // If neither the old or new lane has any status markers, leave it alone
+  if (!oldShouldComplete && !newShouldComplete &&
+      !oldShouldMarkInProgress && !newShouldMarkInProgress &&
+      !oldShouldMarkCancelled && !newShouldMarkCancelled) {
+    return { next: item };
+  }
 
   const isComplete = item.data.checked && item.data.checkChar === getTaskStatusDone();
+  const isInProgress = item.data.checkChar === '/';
+  const isCancelled = item.data.checkChar === '-';
 
-  // If it already matches the new lane, leave it alone
-  if (newShouldComplete === isComplete) return { next: item };
+  // Determine target status character
+  let targetCheckChar: string;
+  let targetChecked: boolean;
 
   if (newShouldComplete) {
+    targetCheckChar = getTaskStatusDone();
+    targetChecked = true;
+  } else if (newShouldMarkInProgress) {
+    targetCheckChar = '/';
+    targetChecked = false;
+  } else if (newShouldMarkCancelled) {
+    targetCheckChar = '-';
+    targetChecked = false;
+  } else {
+    // Moving to a lane with no status marking - reset to unchecked
+    targetCheckChar = ' ';
+    targetChecked = false;
+  }
+
+  // If it already matches the target status, leave it alone
+  if (item.data.checkChar === targetCheckChar && item.data.checked === targetChecked) {
+    return { next: item };
+  }
+
+  // For completed status, use toggleTask if available
+  if (newShouldComplete) {
     item = update(item, { data: { checkChar: { $set: getTaskStatusPreDone() } } });
+    const updates = toggleTask(item, destinationStateManager.file);
+
+    if (updates) {
+      const [itemStrings, checkChars, thisIndex] = updates;
+      let next: Item;
+      let replacement: Item;
+
+      itemStrings.forEach((str, i) => {
+        if (i === thisIndex) {
+          next = destinationStateManager.getNewItem(str, checkChars[i]);
+        } else {
+          replacement = destinationStateManager.getNewItem(str, checkChars[i]);
+        }
+      });
+
+      return { next, replacement };
+    }
   }
 
-  const updates = toggleTask(item, destinationStateManager.file);
-
-  if (updates) {
-    const [itemStrings, checkChars, thisIndex] = updates;
-    let next: Item;
-    let replacement: Item;
-
-    itemStrings.forEach((str, i) => {
-      if (i === thisIndex) {
-        next = destinationStateManager.getNewItem(str, checkChars[i]);
-      } else {
-        replacement = destinationStateManager.getNewItem(str, checkChars[i]);
-      }
-    });
-
-    return { next, replacement };
-  }
-
-  // It's different, update it
+  // For other statuses or if toggleTask is not available, directly update
   return {
     next: update(item, {
       data: {
-        checked: {
-          $set: newShouldComplete,
-        },
-        checkChar: {
-          $set: newShouldComplete ? getTaskStatusDone() : ' ',
-        },
+        checked: { $set: targetChecked },
+        checkChar: { $set: targetCheckChar },
       },
     }),
   };

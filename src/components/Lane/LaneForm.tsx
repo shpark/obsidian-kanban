@@ -16,6 +16,8 @@ interface LaneFormProps {
 
 export function LaneForm({ onNewLane, closeLaneForm }: LaneFormProps) {
   const [shouldMarkAsComplete, setShouldMarkAsComplete] = useState(false);
+  const [shouldMarkAsInProgress, setShouldMarkAsInProgress] = useState(false);
+  const [shouldMarkAsCancelled, setShouldMarkAsCancelled] = useState(false);
   const editorRef = useRef<EditorView>();
   const inputRef = useRef<HTMLTextAreaElement>();
   const clickOutsideRef = useOnclickOutside(() => closeLaneForm(), {
@@ -37,6 +39,8 @@ export function LaneForm({ onNewLane, closeLaneForm }: LaneFormProps) {
         data: {
           ...parseLaneTitle(title),
           shouldMarkItemsComplete: shouldMarkAsComplete,
+          shouldMarkItemsInProgress: shouldMarkAsInProgress,
+          shouldMarkItemsCancelled: shouldMarkAsCancelled,
         },
       });
 
@@ -49,9 +53,11 @@ export function LaneForm({ onNewLane, closeLaneForm }: LaneFormProps) {
       });
 
       setShouldMarkAsComplete(false);
+      setShouldMarkAsInProgress(false);
+      setShouldMarkAsCancelled(false);
       onNewLane();
     },
-    [onNewLane, setShouldMarkAsComplete, boardModifiers]
+    [onNewLane, setShouldMarkAsComplete, setShouldMarkAsInProgress, setShouldMarkAsCancelled, boardModifiers]
   );
 
   const editState = useMemo(() => ({ x: 0, y: 0 }), []);
@@ -86,6 +92,20 @@ export function LaneForm({ onNewLane, closeLaneForm }: LaneFormProps) {
         <div
           onClick={() => setShouldMarkAsComplete(!shouldMarkAsComplete)}
           className={`checkbox-container ${shouldMarkAsComplete ? 'is-enabled' : ''}`}
+        />
+      </div>
+      <div className={c('checkbox-wrapper')}>
+        <div className={c('checkbox-label')}>{t('Mark cards in this list as in-progress')}</div>
+        <div
+          onClick={() => setShouldMarkAsInProgress(!shouldMarkAsInProgress)}
+          className={`checkbox-container ${shouldMarkAsInProgress ? 'is-enabled' : ''}`}
+        />
+      </div>
+      <div className={c('checkbox-wrapper')}>
+        <div className={c('checkbox-label')}>{t('Mark cards in this list as cancelled')}</div>
+        <div
+          onClick={() => setShouldMarkAsCancelled(!shouldMarkAsCancelled)}
+          className={`checkbox-container ${shouldMarkAsCancelled ? 'is-enabled' : ''}`}
         />
       </div>
       <div className={c('lane-input-actions')}>
