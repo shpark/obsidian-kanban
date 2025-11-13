@@ -7,7 +7,7 @@ import { parseLaneTitle } from 'src/parsers/helpers/parser';
 import { MarkdownEditor, allowNewLine } from '../Editor/MarkdownEditor';
 import { KanbanContext } from '../context';
 import { c, generateInstanceId } from '../helpers';
-import { LaneTemplate } from '../types';
+import { LaneItemStatus, LaneTemplate } from '../types';
 
 interface LaneFormProps {
   onNewLane: () => void;
@@ -15,7 +15,7 @@ interface LaneFormProps {
 }
 
 export function LaneForm({ onNewLane, closeLaneForm }: LaneFormProps) {
-  const [shouldMarkAsComplete, setShouldMarkAsComplete] = useState(false);
+  const [markItemsAsStatus, setMarkItemsAsStatus] = useState<LaneItemStatus | undefined>(undefined);
   const editorRef = useRef<EditorView>();
   const inputRef = useRef<HTMLTextAreaElement>();
   const clickOutsideRef = useOnclickOutside(() => closeLaneForm(), {
@@ -30,6 +30,7 @@ export function LaneForm({ onNewLane, closeLaneForm }: LaneFormProps) {
 
   const createLane = useCallback(
     (cm: EditorView, title: string) => {
+      const shouldMarkAsComplete = markItemsAsStatus === 'complete';
       boardModifiers.addLane({
         ...LaneTemplate,
         id: generateInstanceId(),
@@ -37,6 +38,7 @@ export function LaneForm({ onNewLane, closeLaneForm }: LaneFormProps) {
         data: {
           ...parseLaneTitle(title),
           shouldMarkItemsComplete: shouldMarkAsComplete,
+          markItemsAsStatus,
         },
       });
 
@@ -48,10 +50,10 @@ export function LaneForm({ onNewLane, closeLaneForm }: LaneFormProps) {
         },
       });
 
-      setShouldMarkAsComplete(false);
+      setMarkItemsAsStatus(undefined);
       onNewLane();
     },
-    [onNewLane, setShouldMarkAsComplete, boardModifiers]
+    [onNewLane, boardModifiers, markItemsAsStatus]
   );
 
   const editState = useMemo(() => ({ x: 0, y: 0 }), []);
@@ -81,13 +83,23 @@ export function LaneForm({ onNewLane, closeLaneForm }: LaneFormProps) {
           onSubmit={onSubmit}
         />
       </div>
-      <div className={c('checkbox-wrapper')}>
-        <div className={c('checkbox-label')}>{t('Mark cards in this list as complete')}</div>
-        <div
-          onClick={() => setShouldMarkAsComplete(!shouldMarkAsComplete)}
-          className={`checkbox-container ${shouldMarkAsComplete ? 'is-enabled' : ''}`}
-        />
-      </div>
+      {(['complete', 'in-progress', 'cancelled'] as LaneItemStatus[]).map((status) => (
+        <div className={c('checkbox-wrapper')} key={status}>
+          <div className={c('checkbox-label')}>
+            {status === 'complete'
+              ? t('Mark cards in this list as complete')
+              : status === 'in-progress'
+              ? t('Mark cards in this list as in-progress')
+              : t('Mark cards in this list as cancelled')}
+          </div>
+          <div
+            onClick={() =>
+              setMarkItemsAsStatus((current) => (current === status ? undefined : status))
+            }
+            className={`checkbox-container ${markItemsAsStatus === status ? 'is-enabled' : ''}`}
+          />
+        </div>
+      ))}
       <div className={c('lane-input-actions')}>
         <button
           className={c('lane-action-add')}

@@ -7,13 +7,15 @@ import { Path } from 'src/dnd/types';
 import { getEntityFromPath } from 'src/dnd/util/data';
 import {
   InlineField,
+  getTaskStatusCancelled,
   getTaskStatusDone,
+  getTaskStatusInProgress,
   getTaskStatusPreDone,
   toggleTask,
 } from 'src/parsers/helpers/inlineMetadata';
 
 import { SearchContextProps } from './context';
-import { Board, DataKey, DateColor, Item, Lane, PageData, TagColor } from './types';
+import { Board, DataKey, DateColor, Item, Lane, LaneItemStatus, PageData, TagColor } from './types';
 
 export const baseClassName = 'kanban-plugin';
 
@@ -33,6 +35,38 @@ export function generateInstanceId(len: number = 9): string {
     .slice(2, 2 + len);
 }
 
+export function getLaneStatusFromData(data?: Lane['data']): LaneItemStatus | undefined {
+  if (!data) return undefined;
+  return data.markItemsAsStatus || (data.shouldMarkItemsComplete ? 'complete' : undefined);
+}
+
+export function getLaneStatus(lane?: Lane): LaneItemStatus | undefined {
+  return lane ? getLaneStatusFromData(lane.data) : undefined;
+}
+
+export function getCheckCharForLaneStatus(status?: LaneItemStatus): string {
+  switch (status) {
+    case 'complete':
+      return getTaskStatusDone();
+    case 'in-progress':
+      return getTaskStatusInProgress();
+    case 'cancelled':
+      return getTaskStatusCancelled();
+    default:
+      return ' ';
+  }
+}
+
+export function applyLaneStatusToItem(item: Item, status?: LaneItemStatus): Item {
+  const checkChar = getCheckCharForLaneStatus(status);
+  return update(item, {
+    data: {
+      checked: { $set: status === 'complete' },
+      checkChar: { $set: checkChar },
+    },
+  });
+}
+
 export function maybeCompleteForMove(
   sourceStateManager: StateManager,
   sourceBoard: Board,
@@ -45,22 +79,28 @@ export function maybeCompleteForMove(
   const sourceParent = getEntityFromPath(sourceBoard, sourcePath.slice(0, -1));
   const destinationParent = getEntityFromPath(destinationBoard, destinationPath.slice(0, -1));
 
-  const oldShouldComplete = sourceParent?.data?.shouldMarkItemsComplete;
-  const newShouldComplete = destinationParent?.data?.shouldMarkItemsComplete;
+  const oldStatus = getLaneStatus(sourceParent as Lane);
+  const newStatus = getLaneStatus(destinationParent as Lane);
 
-  // If neither the old or new lane set it complete, leave it alone
-  if (!oldShouldComplete && !newShouldComplete) return { next: item };
+  if (!oldStatus && !newStatus) return { next: item };
+  if (oldStatus === newStatus) return { next: item };
 
-  const isComplete = item.data.checked && item.data.checkChar === getTaskStatusDone();
+  const requiresTaskToggle = oldStatus === 'complete' || newStatus === 'complete';
 
-  // If it already matches the new lane, leave it alone
-  if (newShouldComplete === isComplete) return { next: item };
-
-  if (newShouldComplete) {
-    item = update(item, { data: { checkChar: { $set: getTaskStatusPreDone() } } });
+  if (!requiresTaskToggle) {
+    return { next: applyLaneStatusToItem(item, newStatus) };
   }
 
-  const updates = toggleTask(item, destinationStateManager.file);
+  const isComplete = item.data.checked && item.data.checkChar === getTaskStatusDone();
+  if (newStatus === 'complete' && isComplete) return { next: item };
+
+  let workingItem = item;
+
+  if (newStatus === 'complete') {
+    workingItem = update(item, { data: { checkChar: { $set: getTaskStatusPreDone() } } });
+  }
+
+  const updates = toggleTask(workingItem, destinationStateManager.file);
 
   if (updates) {
     const [itemStrings, checkChars, thisIndex] = updates;
@@ -75,21 +115,17 @@ export function maybeCompleteForMove(
       }
     });
 
+    if (newStatus && newStatus !== 'complete') {
+      next = applyLaneStatusToItem(next, newStatus);
+    } else if (!newStatus) {
+      next = applyLaneStatusToItem(next, undefined);
+    }
+
     return { next, replacement };
   }
 
-  // It's different, update it
   return {
-    next: update(item, {
-      data: {
-        checked: {
-          $set: newShouldComplete,
-        },
-        checkChar: {
-          $set: newShouldComplete ? getTaskStatusDone() : ' ',
-        },
-      },
-    }),
+    next: applyLaneStatusToItem(item, newStatus),
   };
 }
 

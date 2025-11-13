@@ -182,16 +182,20 @@ function getTasksPluginSettings() {
   )?.settings;
 }
 
-export function getTaskStatusDone(): string {
+function getTaskStatusByType(type: string, fallback: string): string {
   const settings = getTasksPluginSettings();
   const statuses = settings?.statusSettings;
-  if (!statuses) return 'x';
+  if (!statuses) return fallback;
 
-  let done = statuses.coreStatuses?.find((s: any) => s.type === 'DONE');
-  if (!done) done = statuses.customStatuses?.find((s: any) => s.type === 'DONE');
-  if (!done) return 'x';
+  let match = statuses.coreStatuses?.find((s: any) => s.type === type);
+  if (!match) match = statuses.customStatuses?.find((s: any) => s.type === type);
+  if (!match) return fallback;
 
-  return done.symbol;
+  return match.symbol;
+}
+
+export function getTaskStatusDone(): string {
+  return getTaskStatusByType('DONE', 'x');
 }
 
 export function getTaskStatusPreDone(): string {
@@ -206,6 +210,14 @@ export function getTaskStatusPreDone(): string {
   if (!preDone) return ' ';
 
   return preDone.symbol;
+}
+
+export function getTaskStatusCancelled(): string {
+  return getTaskStatusByType('CANCELLED', '/');
+}
+
+export function getTaskStatusInProgress(): string {
+  return getTaskStatusByType('IN_PROGRESS', '-');
 }
 
 export function toggleTaskString(item: string, file: TFile): string | null {

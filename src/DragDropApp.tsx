@@ -6,7 +6,7 @@ import { KanbanView } from './KanbanView';
 import { DraggableItem } from './components/Item/Item';
 import { DraggableLane } from './components/Lane/Lane';
 import { KanbanContext } from './components/context';
-import { c, maybeCompleteForMove } from './components/helpers';
+import { applyLaneStatusToItem, c, getLaneStatus, maybeCompleteForMove } from './components/helpers';
 import { Board, DataTypes, Item, Lane } from './components/types';
 import { DndContext } from './dnd/components/DndContext';
 import { DragOverlay } from './dnd/components/DragOverlay';
@@ -21,11 +21,7 @@ import {
 import { getBoardModifiers } from './helpers/boardModifiers';
 import KanbanPlugin from './main';
 import { frontmatterKey } from './parsers/common';
-import {
-  getTaskStatusDone,
-  getTaskStatusPreDone,
-  toggleTask,
-} from './parsers/helpers/inlineMetadata';
+import { getTaskStatusPreDone, toggleTask } from './parsers/helpers/inlineMetadata';
 
 export function createApp(win: Window, plugin: KanbanPlugin) {
   return <DragDropApp win={win} plugin={plugin} />;
@@ -50,13 +46,13 @@ export function DragDropApp({ win, plugin }: { win: Window; plugin: KanbanPlugin
         const stateManager = plugin.getStateManagerFromViewID(data.viewId, data.win);
         const dropPath = dropEntity.getPath();
         const destinationParent = getEntityFromPath(stateManager.state, dropPath.slice(0, -1));
+        const laneStatus = getLaneStatus(destinationParent as Lane);
+        const shouldMarkComplete = laneStatus === 'complete';
 
         try {
           const items: Item[] = data.content.map((title: string) => {
             let item = stateManager.getNewItem(title, ' ');
-            const isComplete = !!destinationParent?.data?.shouldMarkItemsComplete;
-
-            if (isComplete) {
+            if (shouldMarkComplete) {
               item = update(item, { data: { checkChar: { $set: getTaskStatusPreDone() } } });
               const updates = toggleTask(item, stateManager.file);
               if (updates) {
@@ -65,20 +61,11 @@ export function DragDropApp({ win, plugin }: { win: Window; plugin: KanbanPlugin
                 const checkChar = checkChars[thisIndex];
                 return stateManager.getNewItem(nextItem, checkChar);
               }
+
+              return applyLaneStatusToItem(item, 'complete');
             }
 
-            return update(item, {
-              data: {
-                checked: {
-                  $set: !!destinationParent?.data?.shouldMarkItemsComplete,
-                },
-                checkChar: {
-                  $set: destinationParent?.data?.shouldMarkItemsComplete
-                    ? getTaskStatusDone()
-                    : ' ',
-                },
-              },
-            });
+            return applyLaneStatusToItem(item, laneStatus);
           });
 
           return stateManager.setState((board) => insertEntity(board, dropPath, items));

@@ -13,6 +13,7 @@ import {
   ItemData,
   ItemTemplate,
   Lane,
+  LaneItemStatus,
   LaneTemplate,
 } from 'src/components/types';
 import { laneTitleWithMaxItems } from 'src/helpers';
@@ -20,7 +21,13 @@ import { defaultSort } from 'src/helpers/util';
 import { t } from 'src/lang/helpers';
 import { visit } from 'unist-util-visit';
 
-import { archiveString, completeString, settingsToCodeblock } from '../common';
+import {
+  archiveString,
+  cancelledString,
+  completeString,
+  inProgressString,
+  settingsToCodeblock,
+} from '../common';
 import { DateNode, FileNode, TimeNode, ValueNode } from '../extensions/types';
 import {
   ContentBoundary,
@@ -252,7 +259,7 @@ export function astToUnhydratedBoard(
       const headingBoundary = getNodeContentBoundary(child as Parent);
       const title = getStringFromBoundary(md, headingBoundary);
 
-      let shouldMarkItemsComplete = false;
+      let laneStatus: LaneItemStatus | undefined;
 
       const list = getNextOfType(root.children, index, 'list', (child) => {
         if (child.type === 'heading') return false;
@@ -265,13 +272,25 @@ export function astToUnhydratedBoard(
           }
 
           if (childStr === t('Complete')) {
-            shouldMarkItemsComplete = true;
+            laneStatus = 'complete';
+            return true;
+          }
+
+          if (childStr === t('In Progress')) {
+            laneStatus = 'in-progress';
+            return true;
+          }
+
+          if (childStr === t('Cancelled')) {
+            laneStatus = 'cancelled';
             return true;
           }
         }
 
         return true;
       });
+
+      const shouldMarkItemsComplete = laneStatus === 'complete';
 
       if (isArchive && list) {
         archive.push(
@@ -295,6 +314,7 @@ export function astToUnhydratedBoard(
           data: {
             ...parseLaneTitle(title),
             shouldMarkItemsComplete,
+            markItemsAsStatus: laneStatus,
           },
         });
       } else {
@@ -312,6 +332,7 @@ export function astToUnhydratedBoard(
           data: {
             ...parseLaneTitle(title),
             shouldMarkItemsComplete,
+            markItemsAsStatus: laneStatus,
           },
         });
       }
@@ -404,6 +425,10 @@ function itemToMd(item: Item) {
   return `- [${item.data.checkChar}] ${addBlockId(indentNewLines(item.data.titleRaw), item)}`;
 }
 
+function getLaneStatus(lane: Lane): LaneItemStatus | undefined {
+  return lane.data.markItemsAsStatus || (lane.data.shouldMarkItemsComplete ? 'complete' : undefined);
+}
+
 function laneToMd(lane: Lane) {
   const lines: string[] = [];
 
@@ -411,8 +436,14 @@ function laneToMd(lane: Lane) {
 
   lines.push('');
 
-  if (lane.data.shouldMarkItemsComplete) {
+  const laneStatus = getLaneStatus(lane);
+
+  if (laneStatus === 'complete') {
     lines.push(completeString);
+  } else if (laneStatus === 'in-progress') {
+    lines.push(inProgressString);
+  } else if (laneStatus === 'cancelled') {
+    lines.push(cancelledString);
   }
 
   lane.children.forEach((item) => {

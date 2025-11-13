@@ -13,12 +13,11 @@ import { SortPlaceholder } from 'src/dnd/components/SortPlaceholder';
 import { Sortable, StaticSortable } from 'src/dnd/components/Sortable';
 import { useDragHandle } from 'src/dnd/managers/DragManager';
 import { frontmatterKey } from 'src/parsers/common';
-import { getTaskStatusDone } from 'src/parsers/helpers/inlineMetadata';
 
 import { Items } from '../Item/Item';
 import { ItemForm } from '../Item/ItemForm';
 import { KanbanContext, SearchContext, SortContext } from '../context';
-import { c, generateInstanceId } from '../helpers';
+import { applyLaneStatusToItem, c, generateInstanceId, getLaneStatusFromData } from '../helpers';
 import { DataTypes, EditState, EditingState, Item, Lane } from '../types';
 import { LaneHeader } from './LaneHeader';
 
@@ -64,7 +63,8 @@ function DraggableLaneRaw({
 
   const bindHandle = useDragHandle(measureRef, dragHandleRef);
 
-  const shouldMarkItemsComplete = !!lane.data.shouldMarkItemsComplete;
+  const laneStatus = getLaneStatusFromData(lane.data);
+  const shouldMarkItemsComplete = laneStatus === 'complete';
   const isCompactPrepend = insertionMethod === 'prepend-compact';
   const shouldPrepend = isCompactPrepend || insertionMethod === 'prepend';
 
@@ -83,19 +83,7 @@ function DraggableLaneRaw({
     (items: Item[]) => {
       boardModifiers[shouldPrepend ? 'prependItems' : 'appendItems'](
         [...path, lane.children.length - 1],
-        items.map((item) =>
-          update(item, {
-            data: {
-              checked: {
-                // Mark the item complete if we're moving into a completed lane
-                $set: shouldMarkItemsComplete,
-              },
-              checkChar: {
-                $set: shouldMarkItemsComplete ? getTaskStatusDone() : ' ',
-              },
-            },
-          })
-        )
+        items.map((item) => applyLaneStatusToItem(item, laneStatus))
       );
 
       // TODO: can we find a less brute force way to do this?
@@ -114,7 +102,7 @@ function DraggableLaneRaw({
         }
       });
     },
-    [boardModifiers, path, lane, shouldPrepend]
+    [boardModifiers, path, lane, shouldPrepend, laneStatus]
   );
 
   const DroppableComponent = isStatic ? StaticDroppable : Droppable;

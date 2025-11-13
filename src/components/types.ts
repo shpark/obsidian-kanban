@@ -13,8 +13,11 @@ export enum LaneSort {
   TagsDsc,
 }
 
+export type LaneItemStatus = 'complete' | 'in-progress' | 'cancelled';
+
 export interface LaneData {
   shouldMarkItemsComplete?: boolean;
+  markItemsAsStatus?: LaneItemStatus;
   title: string;
   maxItems?: number;
   dom?: HTMLDivElement;

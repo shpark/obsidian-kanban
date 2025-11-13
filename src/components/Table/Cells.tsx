@@ -12,7 +12,7 @@ import { ItemContent, useDatePickers } from '../Item/ItemContent';
 import { useItemMenu } from '../Item/ItemMenu';
 import { MarkdownRenderer } from '../MarkdownRenderer/MarkdownRenderer';
 import { KanbanContext, SearchContext } from '../context';
-import { c, useGetDateColorFn } from '../helpers';
+import { c, getLaneStatusFromData, useGetDateColorFn } from '../helpers';
 import { EditState, Item, Lane, isEditing } from '../types';
 import { TableItem } from './types';
 
@@ -53,7 +53,8 @@ export const ItemCell = memo(
     const { stateManager, boardModifiers } = useContext(KanbanContext);
     const search = useContext(SearchContext);
     const [editState, setEditState] = useState<EditState>(null);
-    const shouldMarkItemsComplete = !!lane.data.shouldMarkItemsComplete;
+    const laneStatus = getLaneStatusFromData(lane.data);
+    const shouldMarkItemsComplete = laneStatus === 'complete';
 
     const showItemMenu = useItemMenu({
       boardModifiers,
@@ -113,7 +114,7 @@ export const ItemCell = memo(
   },
   (prev, next) => {
     return (
-      prev.lane.data.shouldMarkItemsComplete === next.lane.data.shouldMarkItemsComplete &&
+      getLaneStatusFromData(prev.lane.data) === getLaneStatusFromData(next.lane.data) &&
       isEqual(prev.item, next.item) &&
       isEqual(prev.path, next.path)
     );

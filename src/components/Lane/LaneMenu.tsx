@@ -113,6 +113,7 @@ export function useSettingsMenu({ setEditState, path, lane }: UseSettingsMenuPar
               data: {
                 title: '',
                 shouldMarkItemsComplete: false,
+                markItemsAsStatus: undefined,
                 forceEditMode: true,
               },
             })
@@ -133,6 +134,7 @@ export function useSettingsMenu({ setEditState, path, lane }: UseSettingsMenuPar
               data: {
                 title: '',
                 shouldMarkItemsComplete: false,
+                markItemsAsStatus: undefined,
                 forceEditMode: true,
               },
             });
