@@ -20,7 +20,7 @@ import { defaultSort } from 'src/helpers/util';
 import { t } from 'src/lang/helpers';
 import { visit } from 'unist-util-visit';
 
-import { archiveString, completeString, settingsToCodeblock } from '../common';
+import { archiveString, completeString, inProgressString, cancelledString, settingsToCodeblock } from '../common';
 import { DateNode, FileNode, TimeNode, ValueNode } from '../extensions/types';
 import {
   ContentBoundary,
@@ -253,6 +253,8 @@ export function astToUnhydratedBoard(
       const title = getStringFromBoundary(md, headingBoundary);
 
       let shouldMarkItemsComplete = false;
+      let shouldMarkItemsInProgress = false;
+      let shouldMarkItemsCancelled = false;
 
       const list = getNextOfType(root.children, index, 'list', (child) => {
         if (child.type === 'heading') return false;
@@ -266,6 +268,16 @@ export function astToUnhydratedBoard(
 
           if (childStr === t('Complete')) {
             shouldMarkItemsComplete = true;
+            return true;
+          }
+
+          if (childStr === 'In-progress') {
+            shouldMarkItemsInProgress = true;
+            return true;
+          }
+
+          if (childStr === t('Cancelled')) {
+            shouldMarkItemsCancelled = true;
             return true;
           }
         }
@@ -295,6 +307,8 @@ export function astToUnhydratedBoard(
           data: {
             ...parseLaneTitle(title),
             shouldMarkItemsComplete,
+            shouldMarkItemsInProgress,
+            shouldMarkItemsCancelled,
           },
         });
       } else {
@@ -312,6 +326,8 @@ export function astToUnhydratedBoard(
           data: {
             ...parseLaneTitle(title),
             shouldMarkItemsComplete,
+            shouldMarkItemsInProgress,
+            shouldMarkItemsCancelled,
           },
         });
       }
@@ -413,6 +429,14 @@ function laneToMd(lane: Lane) {
 
   if (lane.data.shouldMarkItemsComplete) {
     lines.push(completeString);
+  }
+
+  if (lane.data.shouldMarkItemsInProgress) {
+    lines.push(inProgressString);
+  }
+
+  if (lane.data.shouldMarkItemsCancelled) {
+    lines.push(cancelledString);
   }
 
   lane.children.forEach((item) => {

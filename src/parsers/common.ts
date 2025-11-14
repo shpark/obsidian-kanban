@@ -21,6 +21,8 @@ export interface BaseFormat {
 }
 
 export const completeString = `**${t('Complete')}**`;
+export const inProgressString = `**In-progress**`;
+export const cancelledString = `**${t('Cancelled')}**`;
 export const archiveString = '***';
 export const basicFrontmatter = ['---', '', `${frontmatterKey}: board`, '', '---', '', ''].join(
   '\n'
